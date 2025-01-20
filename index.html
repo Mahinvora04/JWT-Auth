@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>JWT Authentication</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+      }
+      .hidden {
+        display: none;
+      }
+      #protectedData {
+        margin-top: 20px;
+        padding: 10px;
+        background: #f0f0f0;
+        border: 1px solid #ccc;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Signup</h1>
+    <form id="signupForm">
+      <input type="text" id="signupUsername" placeholder="Username" required />
+      <input
+        type="password"
+        id="signupPassword"
+        placeholder="Password"
+        required
+      />
+      <button type="submit">Signup</button>
+    </form>
+
+    <h1>Login</h1>
+    <form id="loginForm">
+      <input type="text" id="loginUsername" placeholder="Username" required />
+      <input
+        type="password"
+        id="loginPassword"
+        placeholder="Password"
+        required
+      />
+      <button type="submit">Login</button>
+    </form>
+
+    <button id="fetchProtectedData" class="hidden">Fetch Protected Data</button>
+    <div id="protectedData" class="hidden"></div>
+
+    <script>
+      // Get the users from localStorage (if any)
+      const getUsersFromLocalStorage = () => {
+        const users = localStorage.getItem("users");
+        return users ? JSON.parse(users) : [];
+      };
+
+      // Save the users to localStorage
+      const saveUsersToLocalStorage = (users) => {
+        localStorage.setItem("users", JSON.stringify(users));
+      };
+
+      // Simple JWT Signing Function
+      function createJWT(username) {
+        const header = {
+          alg: "HS256",
+          typ: "JWT",
+        };
+        const payload = {
+          username: username,
+          exp: Math.floor(Date.now() / 1000) + 60 * 60, // 1 hour expiry
+        };
+        const secret = "your-secret-key"; // In a real app, this should be kept secure
+
+        // Base64 encode header and payload
+        const encodedHeader = btoa(JSON.stringify(header));
+        const encodedPayload = btoa(JSON.stringify(payload));
+
+        // Simple HMAC SHA256 signature (This is a simplified version for the example)
+        const signature = btoa(
+          encodedHeader + "." + encodedPayload + "." + secret
+        );
+
+        return `${encodedHeader}.${encodedPayload}.${signature}`;
+      }
+
+      // Handle Signup
+      document
+        .getElementById("signupForm")
+        .addEventListener("submit", function (e) {
+          e.preventDefault();
+          const username = document.getElementById("signupUsername").value;
+          const password = document.getElementById("signupPassword").value;
+
+          // Get existing users from localStorage
+          const users = getUsersFromLocalStorage();
+
+          // Check if username already exists
+          const userExists = users.some((u) => u.username === username);
+          if (userExists) {
+            alert("Username already exists.");
+            return;
+          }
+
+          // Simulate saving the user (In real-world, store in a database)
+          users.push({ username, password });
+          saveUsersToLocalStorage(users);
+          alert("User signed up successfully");
+        });
+
+      // Handle Login
+      document
+        .getElementById("loginForm")
+        .addEventListener("submit", function (e) {
+          e.preventDefault();
+          const username = document.getElementById("loginUsername").value;
+          const password = document.getElementById("loginPassword").value;
+
+          // Get users from localStorage
+          const users = getUsersFromLocalStorage();
+
+          // Simulate checking the user credentials
+          const user = users.find(
+            (u) => u.username === username && u.password === password
+          );
+
+          if (user) {
+            const token = createJWT(user.username); // Create JWT token
+            localStorage.setItem("jwtToken", token); // Save token in localStorage
+            alert("Login successful!");
+            document
+              .getElementById("fetchProtectedData")
+              .classList.remove("hidden");
+          } else {
+            alert("Invalid credentials");
+          }
+        });
+
+      // Fetch Protected Data
+      document
+        .getElementById("fetchProtectedData")
+        .addEventListener("click", function () {
+          const token = localStorage.getItem("jwtToken");
+          if (!token) {
+            alert("You need to be logged in to view this data");
+            return;
+          }
+
+          const [header, payload, signature] = token.split(".");
+
+          const decodedPayload = JSON.parse(atob(payload));
+          const currentTime = Math.floor(Date.now() / 1000);
+
+          if (decodedPayload.exp < currentTime) {
+            alert("Token has expired");
+            localStorage.removeItem("jwtToken");
+            document.getElementById("protectedData").classList.add("hidden");
+            return;
+          }
+
+          // Simulate fetching protected data
+          document.getElementById(
+            "protectedData"
+          ).textContent = `Hello, ${decodedPayload.username}. This is your protected data.`;
+          document.getElementById("protectedData").classList.remove("hidden");
+        });
+    </script>
+  </body>
+</html>
